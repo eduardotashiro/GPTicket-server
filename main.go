@@ -17,7 +17,7 @@ type AnalyzeRequest struct {
 	Content string `json:"content"`
 }
 
-// Estructura que se devuelve al front
+// Estructura enviada al frontend
 type AnalyzeResponse struct {
 	Intention  string   `json:"intention"`
 	Summary    []string `json:"summary"`
@@ -37,7 +37,7 @@ func main() {
 }
 
 func handleAnalyze(w http.ResponseWriter, r *http.Request) {
-	// Permite chamadas do browser
+	// Permite solicitudes desde el navegador
 	w.Header().Set("Access-Control-Allow-Origin", "*")
 	w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
 	w.Header().Set("Content-Type", "application/json")
@@ -54,7 +54,7 @@ func handleAnalyze(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Decodifica o JSON do body
+	// Decodifica el JSON recibido en el body
 	var req AnalyzeRequest
 	decoder := json.NewDecoder(r.Body)
 
@@ -77,9 +77,9 @@ func handleAnalyze(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	errorr := json.NewEncoder(w).Encode(result)
+	encodeErr := json.NewEncoder(w).Encode(result)
 
-	if errorr != nil {
+	if encodeErr != nil {
 		log.Println(err)
 	}
 }
@@ -121,7 +121,7 @@ Histórico:
 		return AnalyzeResponse{}, err
 	}
 
-	// Faz parse do JSON retornado pelo Gemini
+	// Convierte el JSON devuelto por Gemini a la estructura de respuesta
 	var result AnalyzeResponse
 
 	err = json.Unmarshal([]byte(resp.Text()), &result)
@@ -129,5 +129,6 @@ Histórico:
 	if err != nil {
 		return AnalyzeResponse{}, err
 	}
+
 	return result, nil
 }
