@@ -7,8 +7,10 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"strings"
 	"time"
 
+	"github.com/joho/godotenv"
 	"google.golang.org/genai"
 )
 
@@ -25,6 +27,12 @@ type AnalyzeResponse struct {
 }
 
 func main() {
+	errr := godotenv.Load()
+
+	if errr != nil {
+		log.Println("arquivo .env não encontrado")
+	}
+
 	http.HandleFunc("/analyze", handleAnalyze)
 
 	fmt.Println("Servidor iniciado na porta 8080")
@@ -40,6 +48,7 @@ func handleAnalyze(w http.ResponseWriter, r *http.Request) {
 	// Permite solicitudes desde el navegador
 	w.Header().Set("Access-Control-Allow-Origin", "*")
 	w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
+	w.Header().Set("Access-Control-Allow-Methods", "POST, OPTIONS") // ← adiciona essa linha
 	w.Header().Set("Content-Type", "application/json")
 
 	// Maneja solicitudes preflight HTTP (CORS)
@@ -80,22 +89,31 @@ func handleAnalyze(w http.ResponseWriter, r *http.Request) {
 	encodeErr := json.NewEncoder(w).Encode(result)
 
 	if encodeErr != nil {
-		log.Println(err)
+		log.Println(encodeErr)
 	}
 }
 
 func callGemini(ticketContent string) (AnalyzeResponse, error) {
 	ctx, cancel := context.WithTimeout(
 		context.Background(),
-		25*time.Second,
+		30*time.Second,
 	)
 	defer cancel()
 
+	apiKey := os.Getenv("GEMINI_API_KEY")
+
+	if apiKey == "" {
+		return AnalyzeResponse{},
+			fmt.Errorf("API de gemini no está configurada")
+	}
+
 	client, err := genai.NewClient(ctx, &genai.ClientConfig{
-		APIKey:  os.Getenv("GEMINI_API_KEY"),
+		APIKey:  apiKey,
 		Backend: genai.BackendGeminiAPI,
 	})
+
 	if err != nil {
+		log.Printf("erro ao chamar Gemini: %v", err)
 		return AnalyzeResponse{}, err
 	}
 
@@ -121,10 +139,15 @@ Histórico:
 		return AnalyzeResponse{}, err
 	}
 
+	raw := resp.Text()
+	raw = strings.ReplaceAll(raw, "```json", "")
+	raw = strings.ReplaceAll(raw, "```", "")
+	raw = strings.TrimSpace(raw)
+
 	// Convierte el JSON devuelto por Gemini a la estructura de respuesta
 	var result AnalyzeResponse
 
-	err = json.Unmarshal([]byte(resp.Text()), &result)
+	err = json.Unmarshal([]byte(raw), &result)
 
 	if err != nil {
 		return AnalyzeResponse{}, err
